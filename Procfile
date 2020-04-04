@@ -1,0 +1,1 @@
+web: sh setup.sh && streamlit run Twitter_App_Demo.py
