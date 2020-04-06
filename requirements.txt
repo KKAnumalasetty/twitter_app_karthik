@@ -3,5 +3,7 @@ tweepy==3.8.0
 streamlit
 pandas==0.25.3
 numpy==1.17.4
-plotly==4.4.1
+plotly>=4.4.1
 vaderSentiment
+bokeh>=2.0.0
+yweather

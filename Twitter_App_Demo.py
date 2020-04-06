@@ -10,8 +10,16 @@ import os
 import json
 import streamlit as st
 import pandas as pd
+import numpy as np
+import yweather
 import re
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import bokeh
+from bokeh.plotting import figure
+from math import pi
+from bokeh.palettes import Category20c
+from bokeh.transform import cumsum
+
 
 class Twitter_client():
     def __init__(self,twitter_user=None):
@@ -162,6 +170,53 @@ class Tweet_Sentiment_Analyzer():
         tweet_DF['Sentiment_Score'] = sentiment_scores
         return tweet_DF
 
+class Country_Mapping():
+    
+    def __init__(self):
+        self.client = yweather.Client()
+        self.country_code = 1
+    
+    def get_country_code_by_name(self,country_name):
+        self.country_code = self.client.fetch_woeid(country_name)
+        return self.country_code
+
+class Twitter_Trends():
+    
+    def __init__(self):
+        pass
+    
+    def get_trends_by_location(self,location):
+        auth = Twitter_Authenticator().twitter_authenticator()
+        api = API(auth,wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
+        country_code = Country_Mapping().get_country_code_by_name(location)
+        raw_trends = api.trends_place(country_code)
+        data = raw_trends[0] 
+        # grab the trends
+        trends = data['trends']
+        # grab the name from each trend
+        names = []
+        tweet_volumes = []
+        for trend in trends:
+            if (isinstance(trend['tweet_volume'], int)):
+                if (trend['tweet_volume'] >0):
+                    trend_name = trend['name'].encode("ascii", errors="ignore").decode()
+                    trend_name = re.sub("#_*","",trend_name)
+                    names.append(trend_name)
+                    tweet_volumes.append(trend['tweet_volume'])
+        # put all the names together with a ' ' separating them
+        trends_DF = pd.DataFrame({
+                'Trend_Name':names,
+                'Tweet_Count':tweet_volumes
+                    })
+        trends_DF['Trend_Name'] = trends_DF['Trend_Name'].str.strip()
+        trends_DF['Trend_Name'].replace('', np.nan, inplace=True)
+        trends_DF = trends_DF.dropna()
+        trends_DF = trends_DF.sort_values(['Tweet_Count'],ascending=False)
+        trends_DF.reset_index(drop=True,inplace=True)
+#        trends_DF['Tweet_Count']= trends_DF['Tweet_Count'].astype(int).apply('{:,}'.format)
+        return trends_DF
+
+
         
 if __name__ =="__main__":
     
@@ -173,7 +228,8 @@ if __name__ =="__main__":
     
     twitter_handle = "I'll search by Person/Twitter Handle (@realdonaldtrump)"
     twitter_hashtag = "I'll search by topic/hashtag (#corona virus)"
-    search_type = st.radio("Search Category", [twitter_hashtag,twitter_handle])
+    twitter_trends_location = "Show me top twitter trending topics by location (New York)"
+    search_type = st.radio("Search Category", [twitter_hashtag,twitter_trends_location,twitter_handle])
 
     num_tweets = st.slider("How many Tweets you want to analyze", 1, 10,1,1)
     
@@ -195,9 +251,31 @@ if __name__ =="__main__":
          st.subheader("Live Tweets")
          tweets_DF =  tweets.stream_tweets_new(hash_tag_list,num_tweets)
          st.table(tweets_DF)
-#         def highlight_sentiment(df, column):
-#             is_max = pd.Series(data=False, index=df.index)
-#             is_max[column] = df[column] >= 0.2
-#             return ['background-color: yellow' if is_max.any() else 'background-color: red' for v in is_max]
-#         
-#         st.table(tweets_DF.style.apply(highlight_sentiment,column=['Sentiment_Score'],axis=0))
+    elif search_type == twitter_trends_location:
+        trends = Twitter_Trends()
+        twitter_locaiton = st.text_input('Enter country name: (type "world" for global trends)','USA')
+        try:
+            trends_DF = trends.get_trends_by_location(twitter_locaiton)
+            trends_DF = trends_DF.head(5)
+            trends_DF1 = trends_DF.copy()
+            trends_DF1['Tweet_Count']= trends_DF1['Tweet_Count'].astype(int).apply('{:,}'.format)
+            trends_DF1.index = np.arange(1, len(trends_DF1)+1)
+            trends_DF1.rename(columns={'Trend_Name': 'Trending Topic', 'Tweet_Count': '# Tweets'}, inplace=True)
+            st.table(trends_DF1)
+            trends_DF['Tweet_Count'] = trends_DF['Tweet_Count'].apply(int)
+            trends_DF['angle'] = trends_DF['Tweet_Count']/trends_DF['Tweet_Count'].sum() * 2*pi
+            chart_colors = ['red', 'blue', 'green','orange','yellow']
+            trends_DF['color'] = chart_colors
+            p = figure(plot_height=350, title="Top five trending topics at "+twitter_locaiton, toolbar_location=None,
+                       tools="hover", tooltips="@Trend_Name: @Tweet_Count", x_range=(-0.5, 1.0))
+            p.wedge(x=0, y=1, radius=0.4,
+                    start_angle=cumsum('angle', include_zero=True), end_angle=cumsum('angle'),
+                    line_color="white", fill_color='color', legend_field='Trend_Name', source=trends_DF)
+            p.axis.axis_label=None
+            p.axis.visible=False
+            p.grid.grid_line_color = None
+            st.bokeh_chart(p)
+        except:
+            st.write("<p style='color:red; font-family:Papyrus; font-size:4em;'>Houston we have a problem!! Sorry, we don't have data at this location, please try with a different country name</p>",unsafe_allow_html=True)
+
+        
