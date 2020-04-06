@@ -4,3 +4,4 @@ streamlit
 pandas==0.25.3
 numpy==1.17.4
 plotly==4.4.1
+vaderSentiment
