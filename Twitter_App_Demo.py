@@ -83,9 +83,8 @@ class Twitter_Streamer():
                 'user':users,
                 'tweet':tweets
                 })
-#        st.table(tweets_DF)
         sentiment_tweets_DF =  self.runanalyzer.tweet_sentiment_analyzer_DF(tweets_DF)
-#        st.table(sentiment_tweets_DF)
+        sentiment_tweets_DF.index = sentiment_tweets_DF.index +1
         return sentiment_tweets_DF
 
         
@@ -137,6 +136,18 @@ class Tweet_Sentiment_Analyzer():
             else:
                 st.write('Tweet has no characters to analyze')
             return tweet
+        
+        def set_sentiment_type(sentiment_score):
+            sentiment = 'Neutral'
+            
+            if sentiment_score == 0:
+                sentiment ='Neutral'
+            elif sentiment_score < 0:
+                sentiment = 'Negative'
+            elif sentiment_score >0:
+                sentiment = 'Positive'
+                
+            return sentiment
         sentiment_scores = []
         if (tweet_DF.empty == False) & (tweet_DF.shape[0]>0):
             tweet_DF['my_clean_tweet'] = tweet_DF['tweet'].apply(lambda x: clean_tweet(x))
@@ -145,21 +156,26 @@ class Tweet_Sentiment_Analyzer():
                 sentiment_scores.append(sentiment_score)
             tweet_DF.drop(['my_clean_tweet'], axis=1,inplace=True)
             tweet_DF['Sentiment_Score'] = sentiment_scores
-            tweet_DF['Sentiment'] = tweet_DF['Sentiment_Score'].apply(lambda x: 'Positive' if x >0  else 'Negative')
+            tweet_DF['Sentiment'] = tweet_DF['Sentiment_Score'].apply(lambda x:set_sentiment_type(x))
             tweet_DF= tweet_DF[['user','tweet','Sentiment','Sentiment_Score']]
-#            tweet_DF['Sentiment_Score'] = tweet_DF['Sentiment_Score'].apply(float)
+            tweet_DF.rename(columns = {'user':'User','tweet':'Tweet'},inplace=True)
         else:
-            st.write('Sentiment analysis failed due to error, please check')
+            return pd.DataFrame()
+            #st.write('Sentiment analysis failed due to error, please check')
+            # do nothing - try exception block will handle it
         return tweet_DF
 
 
     def tweet_sentiment_analyzer_list(self,tweet_list):
+        
         def clean_tweet(tweet):
             tweet = re.sub("\n","",tweet)
             tweet = re.sub(r'^https?:\/\/.*[\r\n]*', '', tweet, flags=re.MULTILINE)
             tweet = re.sub("@[\w]","",tweet)
             tweet = re.sub("RT @[\w]","",tweet)
             return tweet
+        
+
         tweet_DF = pd.DataFrame()
         sentiment_scores = []
         for each_tweet in enumerate(tweet_list):
@@ -219,63 +235,88 @@ class Twitter_Trends():
 
         
 if __name__ =="__main__":
+        st.subheader(" Twitter real time data analytics and sentiment analysis by Karthik Anumalasetty ")
+        
+        combo_link = "<a href='https://www.linkedin.com/in/karthikanumalasetty/' target='_blank' ><img src='https://user-images.githubusercontent.com/45413346/78455807-fc9acf80-7665-11ea-810d-fee583f9e0c9.png' width='50' height='50' /> </a><a href='https://github.com/KKAnumalasetty/twitter_app_karthik' target='_blank' ><img src='https://user-images.githubusercontent.com/45413346/78455558-b6913c00-7664-11ea-90f4-744eb2acd6c1.jpg' width='125' height='100' /> </a>"
+        st.write(combo_link,unsafe_allow_html=True)
+        
+        
+        twitter_handle = "I'll search by Person/Twitter Handle (@realdonaldtrump)"
+        twitter_hashtag = "I'll search by topic/hashtag (#corona virus)"
+        twitter_trends_location = "Show me top twitter trending topics by location (New York)"
+        search_type = st.radio("Search Category", [twitter_hashtag,twitter_trends_location,twitter_handle])
     
-    st.subheader(" Twitter real time data analytics and sentiment analysis by Karthik Anumalasetty ")
-    
-    combo_link = "<a href='https://www.linkedin.com/in/karthikanumalasetty/' target='_blank' ><img src='https://user-images.githubusercontent.com/45413346/78455807-fc9acf80-7665-11ea-810d-fee583f9e0c9.png' width='50' height='50' /> </a><a href='https://github.com/KKAnumalasetty/twitter_app_karthik' target='_blank' ><img src='https://user-images.githubusercontent.com/45413346/78455558-b6913c00-7664-11ea-90f4-744eb2acd6c1.jpg' width='125' height='100' /> </a>"
-    st.write(combo_link,unsafe_allow_html=True)
-    
-    
-    twitter_handle = "I'll search by Person/Twitter Handle (@realdonaldtrump)"
-    twitter_hashtag = "I'll search by topic/hashtag (#corona virus)"
-    twitter_trends_location = "Show me top twitter trending topics by location (New York)"
-    search_type = st.radio("Search Category", [twitter_hashtag,twitter_trends_location,twitter_handle])
+        num_tweets = st.slider("How many Tweets you want to analyze", 1, 10,1,1)
+        
+        if search_type == twitter_handle:
+            try:
+                
+                twitter_user = st.text_input('Enter Twitter Handle: ','@realdonaldtrump')
+                twitter_client = Twitter_client(twitter_user)
+                tweets = twitter_client.get_user_tweets(num_tweets)
+                st.subheader("Live Tweets")
+        #        st.table(tweets)
+        #        runanalyzer = Tweet_Sentiment_Analyzer()
+        #        sentiment_tweets_DF =  runanalyzer.tweet_sentiment_analyzer_list(tweets)
+        #        st.table(sentiment_tweets_DF)
+                for tweet in tweets:
+                    st.text(tweet)
+            except:
+                st.write("<p style='color:red; font-family:Papyrus; font-size:20;'>Houston we have a problem!! Sorry, we don't have data for this user/tiwtter handle, please try with a different user/handle</p>",unsafe_allow_html=True)
 
-    num_tweets = st.slider("How many Tweets you want to analyze", 1, 10,1,1)
-    
-    if search_type == twitter_handle:
-        twitter_user = st.text_input('Enter Twitter Handle: ','@realdonaldtrump')
-        twitter_client = Twitter_client(twitter_user)
-        tweets = twitter_client.get_user_tweets(num_tweets)
-        st.subheader("Live Tweets")
-#        st.table(tweets)
-#        runanalyzer = Tweet_Sentiment_Analyzer()
-#        sentiment_tweets_DF =  runanalyzer.tweet_sentiment_analyzer_list(tweets)
-#        st.table(sentiment_tweets_DF)
-        for tweet in tweets:
-            st.text(tweet)
-    elif search_type == twitter_hashtag:
-         fetched_tweets_file ='tweets.json'
-         tweets = Twitter_Streamer()
-         hash_tag_list = st.text_input('Type hashtag and hit enter: ','#COVID-19')
-         st.subheader("Live Tweets")
-         tweets_DF =  tweets.stream_tweets_new(hash_tag_list,num_tweets)
-         st.table(tweets_DF)
-    elif search_type == twitter_trends_location:
-        trends = Twitter_Trends()
-        twitter_locaiton = st.text_input('Enter country name: (type "world" for global trends)','USA')
-        try:
-            trends_DF = trends.get_trends_by_location(twitter_locaiton)
-            trends_DF = trends_DF.head(5)
-            trends_DF1 = trends_DF.copy()
-            trends_DF1['Tweet_Count']= trends_DF1['Tweet_Count'].astype(int).apply('{:,}'.format)
-            trends_DF1.index = np.arange(1, len(trends_DF1)+1)
-            trends_DF1.rename(columns={'Trend_Name': 'Trending Topic', 'Tweet_Count': '# Tweets'}, inplace=True)
-            st.table(trends_DF1)
-            trends_DF['Tweet_Count'] = trends_DF['Tweet_Count'].apply(int)
-            trends_DF['angle'] = trends_DF['Tweet_Count']/trends_DF['Tweet_Count'].sum() * 2*pi
-            chart_colors = ['red', 'blue', 'green','orange','yellow']
-            trends_DF['color'] = chart_colors
-            p = figure(plot_height=350, title="Top five trending topics at "+twitter_locaiton, toolbar_location=None,
-                       tools="hover", tooltips="@Trend_Name: @Tweet_Count", x_range=(-0.5, 1.0))
-            p.wedge(x=0, y=1, radius=0.4,
-                    start_angle=cumsum('angle', include_zero=True), end_angle=cumsum('angle'),
-                    line_color="white", fill_color='color', legend_field='Trend_Name', source=trends_DF)
-            p.axis.axis_label=None
-            p.axis.visible=False
-            p.grid.grid_line_color = None
-            st.bokeh_chart(p)
-        except:
-            st.write("<p style='color:red; font-family:Papyrus; font-size:4em;'>Houston we have a problem!! Sorry, we don't have data at this location, please try with a different country name</p>",unsafe_allow_html=True)
+        elif search_type == twitter_hashtag:
+             tweets = Twitter_Streamer()
+             hash_tag_list = st.text_input('Type hashtag and hit enter: ','#COVID-19')
+             st.subheader("Live Tweets")
+             try:
+                 tweets_DF =  tweets.stream_tweets_new(hash_tag_list,num_tweets)
+                 
+                 def highlight_greaterthan(x):
+                    if x.Sentiment_Score > 0:
+                        return ['background-color: #90EE90']*4
+                    if x.Sentiment_Score < 0:
+                        return ['background-color: #ffcccb']*4
+                    if x.Sentiment_Score == 0:
+                        return ['background-color: #FFFF33']*4
+                            
+                 def bold_font(column):
+                    return 'font-weight: bold'
+                
+                 def format_float(colulmn):
+                    return "{:.2%}"
+                
+                 st.table(tweets_DF.style.hide_index().format({"Sentiment_Score" : "{:.2%}"}) \
+                          .apply(highlight_greaterthan,axis=1) \
+                          .applymap(bold_font, subset=['Sentiment']) \
+                         )
+             except:
+                st.write("<p style='color:red; font-family:Papyrus; font-size:20;'>Houston we have a problem!! Sorry, we don't have data for this hashtag, please try with a different hashtag</p>",unsafe_allow_html=True)
+                      
+        elif search_type == twitter_trends_location:
+            trends = Twitter_Trends()
+            twitter_locaiton = st.text_input('Enter country name: (type "world" for global trends)','USA')
+            try:
+                trends_DF = trends.get_trends_by_location(twitter_locaiton)
+                trends_DF = trends_DF.head(5)
+                trends_DF1 = trends_DF.copy()
+                trends_DF1['Tweet_Count']= trends_DF1['Tweet_Count'].astype(int).apply('{:,}'.format)
+                trends_DF1.index = np.arange(1, len(trends_DF1)+1)
+                trends_DF1.rename(columns={'Trend_Name': 'Trending Topic', 'Tweet_Count': '# Tweets'}, inplace=True)
+                st.table(trends_DF1)
+                trends_DF['Tweet_Count'] = trends_DF['Tweet_Count'].apply(int)
+                trends_DF['angle'] = trends_DF['Tweet_Count']/trends_DF['Tweet_Count'].sum() * 2*pi
+                chart_colors = ['red', 'blue', 'green','orange','yellow']
+                trends_DF['color'] = chart_colors
+                p = figure(plot_height=350, title="Top five trending topics at "+twitter_locaiton, toolbar_location=None,
+                           tools="hover", tooltips="@Trend_Name: @Tweet_Count", x_range=(-0.5, 1.0))
+                p.wedge(x=0, y=1, radius=0.4,
+                        start_angle=cumsum('angle', include_zero=True), end_angle=cumsum('angle'),
+                        line_color="white", fill_color='color', legend_field='Trend_Name', source=trends_DF)
+                p.axis.axis_label=None
+                p.axis.visible=False
+                p.grid.grid_line_color = None
+                st.bokeh_chart(p)
+            except:
+                st.write("<p style='color:red; font-family:Papyrus; font-size:20;'>Houston we have a problem!! Sorry, we don't have data at this location, please try with a different country name</p>",unsafe_allow_html=True)
 
         
