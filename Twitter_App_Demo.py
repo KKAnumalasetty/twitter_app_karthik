@@ -193,7 +193,10 @@ class Country_Mapping():
         self.country_code = 1
     
     def get_country_code_by_name(self,country_name):
-        self.country_code = self.client.fetch_woeid(country_name)
+#        self.country_code = self.client.fetch_woeid(country_name) - WOEID API Not working
+        country_list_DF = pd.read_csv('location_list.csv')
+        self.country_code = country_list_DF.loc[country_list_DF['Location_Name']==country_name]['Location_ID'].values[0]
+        print('pandas stuff ',self.country_code)
         return self.country_code
 
 class Twitter_Trends():
@@ -205,8 +208,10 @@ class Twitter_Trends():
         auth = Twitter_Authenticator().twitter_authenticator()
         api = API(auth,wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
         country_code = Country_Mapping().get_country_code_by_name(location)
+        print('location name =',location,' ID = ', country_code)
         raw_trends = api.trends_place(country_code)
         data = raw_trends[0] 
+        print('trends data= ',data)
         # grab the trends
         trends = data['trends']
         # grab the name from each trend
@@ -294,7 +299,9 @@ if __name__ =="__main__":
                       
         elif search_type == twitter_trends_location:
             trends = Twitter_Trends()
-            twitter_locaiton = st.text_input('Enter country name: (type "world" for global trends)','USA')
+#            twitter_locaiton = st.text_input('Enter country name: (type "world" for global trends)','USA')
+            location_DF = pd.read_csv('location_list.csv')
+            twitter_locaiton = st.selectbox('Select a location',location_DF['Location_Name'].unique())
             try:
                 trends_DF = trends.get_trends_by_location(twitter_locaiton)
                 trends_DF = trends_DF.head(5)
