@@ -2,7 +2,7 @@ gunicorn>=19.7.1
 tweepy==3.8.0
 streamlit
 pandas==0.25.3
-numpy==1.17.4
+numpy==1.22.0
 plotly>=4.4.1
 vaderSentiment
 bokeh>=2.0.0
